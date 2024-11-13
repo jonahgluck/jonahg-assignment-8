@@ -1,8 +1,12 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.linear_model import LogisticRegression
 from scipy.spatial.distance import cdist
 import os
+
+import matplotlib
+matplotlib.use('Agg')  # Use a non-interactive backend
+import matplotlib.pyplot as plt
+
 
 result_dir = "results"
 os.makedirs(result_dir, exist_ok=True)
@@ -20,7 +24,7 @@ def generate_ellipsoid_clusters(distance, n_samples=100, cluster_std=0.5):
     X2 = np.random.multivariate_normal(mean=[1, 1], cov=covariance_matrix, size=n_samples)
     
     # Implement: Shift the second cluster along the x-axis and y-axis for a given distance
-    raise NotImplementedError("Implement the shift of the second cluster")
+    X2 += np.array([distance, distance])
     y2 = np.ones(n_samples)
 
     # Combine the clusters into one dataset
@@ -51,14 +55,27 @@ def do_experiments(start, end, step_num):
     for i, distance in enumerate(shift_distances, 1):
         X, y = generate_ellipsoid_clusters(distance=distance)
         # Implement: record all necessary information for each distance
-        raise NotImplementedError("Record all necessary information for each distance")
+        model, beta0, beta1, beta2 = fit_logistic_regression(X, y)
+        beta0_list.append(beta0)
+        beta1_list.append(beta1)
+        beta2_list.append(beta2)
+        slope = -beta1 / beta2
+        intercept = -beta0 / beta2
+        slope_list.append(slope)
+        intercept_list.append(intercept)
+
 
         # Implement: Plot the dataset
         plt.subplot(n_rows, n_cols, i)
-        raise NotImplementedError("Plot the dataset")
+        plt.scatter(X[y == 0][:, 0], X[y == 0][:, 1], color='blue', label='Class 0')
+        plt.scatter(X[y == 1][:, 0], X[y == 1][:, 1], color='red', label='Class 1')
+
 
         # Implement: Calculate and store logistic loss
-        raise NotImplementedError("Calculate and store logistic loss")
+        from sklearn.metrics import log_loss
+        loss = log_loss(y, model.predict_proba(X)[:, 1])
+        loss_list.append(loss)
+
         # Calculate margin width between 70% confidence contours for each class
         x_min, x_max = X[:, 0].min() - 1, X[:, 0].max() + 1
         y_min, y_max = X[:, 1].min() - 1, X[:, 1].max() + 1
@@ -67,7 +84,12 @@ def do_experiments(start, end, step_num):
         Z = Z.reshape(xx.shape)
 
         # Implement: Calculate decision boundary slope and intercept
-        raise NotImplementedError("Calculate and plot decision boundary slope and intercept")
+        # When plotting the decision boundary, add a label only for the first plot
+        if i == 1:
+            plt.plot(xx, slope * xx + intercept, 'k--')
+        else:
+            plt.plot(xx, slope * xx + intercept, 'k--')
+
 
         # Plot fading red and blue contours for confidence levels
         contour_levels = [0.7, 0.8, 0.9]
@@ -87,10 +109,15 @@ def do_experiments(start, end, step_num):
         # Display decision boundary equation and margin width on the plot
         equation_text = f"{beta0:.2f} + {beta1:.2f} * x1 + {beta2:.2f} * x2 = 0\nx2 = {slope:.2f} * x1 + {intercept:.2f}"
         margin_text = f"Margin Width: {min_distance:.2f}"
-        plt.text(x_min + 0.1, y_max - 1.0, equation_text, fontsize=24, color="black", ha='left',
-                bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.3'))
-        plt.text(x_min + 0.1, y_max - 1.5, margin_text, fontsize=24, color="black", ha='left',
-                bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.3'))
+        # Adjust annotation placement to prevent overlap
+        plt.text(x_min + 0.1, y_max - 1.5, equation_text, fontsize=10, color="black", ha='left',
+                 bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.3'))
+        
+        plt.text(x_min + 0.1, y_max - 2.0, margin_text, fontsize=10, color="black", ha='left',
+                 bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.3'))
+
+
+
 
         if i == 1:
             plt.legend(loc='lower right', fontsize=20)
@@ -146,7 +173,10 @@ def do_experiments(start, end, step_num):
     plt.xlabel("Shift Distance")
     plt.ylabel("Margin Width")
 
-    plt.tight_layout()
+    # Adjust figure size and layout to avoid overlapping plots
+    plt.figure(figsize=(16, n_rows * 6))  # Reduce the figure size for a cleaner look
+    plt.tight_layout()  # Automatically adjust subplots to fit into the figure area
+
     plt.savefig(f"{result_dir}/parameters_vs_shift_distance.png")
 
 if __name__ == "__main__":
